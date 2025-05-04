@@ -2,91 +2,253 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Unit;
-use Illuminate\Support\Facades\Hash;
-
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class UnitController extends Controller
 {
+    /**
+     * Display a listing of the units.
+     *
+     * @return \Illuminate\Http\Response
+     */
     public function index()
     {
-        $units = Unit::all();
+        $units = Unit::with('user')->get();
         return view('units.index', compact('units'));
     }
 
-    // Menampilkan form tambah unit
+    /**
+     * Show the form for creating a new unit.
+     *
+     * @return \Illuminate\Http\Response
+     */
     public function create()
     {
-        return view('units.create');
+        $users = User::where('role', 'unit')
+                      ->whereDoesntHave('unit')
+                      ->get();
+        
+        return view('units.create', compact('users'));
     }
 
-    // Menyimpan data unit baru
+    /**
+     * Store a newly created unit in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
     public function store(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'nama_unit' => 'required|string|max:255',
             'direktur' => 'required|string|max:255',
-            'email' => 'required|email|unique:tb_unit,email',
-            'telepon' => 'required|string|max:20',
-            'password' => 'required|string|min:6|confirmed',
+            'id_user' => 'required|exists:users,id',
+            'telepon' => 'required|string|max:15',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $data = $request->except('password', 'password_confirmation', 'logo');
-        $data['password'] = Hash::make($request->password);
-
-        // Upload logo jika ada
-        if ($request->hasFile('logo')) {
-            $logo = $request->file('logo');
-            $logoName = time() . '_' . $logo->getClientOriginalName();
-            $logo->move(public_path('uploads/logo'), $logoName);
-            $data['logo'] = 'uploads/logo/' . $logoName;
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
         }
 
-        Unit::create($data);
+        $unit = new Unit();
+        $unit->nama_unit = $request->nama_unit;
+        $unit->direktur = $request->direktur;
+        $unit->id_user = $request->id_user;
+        $unit->telepon = $request->telepon;
 
-        return redirect()->route('units.index')->with('success', 'Unit berhasil ditambahkan.');
+        if ($request->hasFile('logo')) {
+            $logoPath = $request->file('logo')->store('public/unit_logos');
+            $unit->logo = str_replace('public/', '', $logoPath);
+        }
+
+        $unit->save();
+
+        return redirect()->route('units.index')
+            ->with('success', 'Unit berhasil dibuat!');
     }
 
-    // Menampilkan form edit unit
+    /**
+     * Display the specified unit.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        $unit = Unit::with('user')->findOrFail($id);
+        return view('units.show', compact('unit'));
+    }
+
+    /**
+     * Show the form for editing the specified unit.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function edit($id)
     {
         $unit = Unit::findOrFail($id);
-        return view('units.edit', compact('unit'));
+        $users = User::where('role', 'unit')
+                      ->where(function($query) use ($unit) {
+                          $query->whereDoesntHave('unit')
+                                ->orWhereHas('unit', function($q) use ($unit) {
+                                    $q->where('id_unit', $unit->id_unit);
+                                });
+                      })
+                      ->get();
+
+        return view('units.edit', compact('unit', 'users'));
     }
 
-    // Menyimpan update unit
+    /**
+     * Update the specified unit in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function update(Request $request, $id)
     {
-        $unit = Unit::findOrFail($id);
-
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'nama_unit' => 'required|string|max:255',
             'direktur' => 'required|string|max:255',
-            'email' => 'required|email|unique:tb_unit,email,' . $unit->id_unit . ',id_unit',
-            'telepon' => 'required|string|max:20',
-            'password' => 'nullable|string|min:6|confirmed',
+            'id_user' => 'required|exists:users,id',
+            'telepon' => 'required|string|max:15',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $data = $request->except('password', 'password_confirmation', 'logo');
-
-        // Jika password diisi, update password
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
         }
 
-        // Jika ada file logo baru
+        $unit = Unit::findOrFail($id);
+        $unit->nama_unit = $request->nama_unit;
+        $unit->direktur = $request->direktur;
+        $unit->id_user = $request->id_user;
+        $unit->telepon = $request->telepon;
+
         if ($request->hasFile('logo')) {
-            $logo = $request->file('logo');
-            $logoName = time() . '_' . $logo->getClientOriginalName();
-            $logo->move(public_path('uploads/logo'), $logoName);
-            $data['logo'] = 'uploads/logo/' . $logoName;
+            // Hapus logo lama jika ada
+            if ($unit->logo && Storage::exists('public/' . $unit->logo)) {
+                Storage::delete('public/' . $unit->logo);
+            }
+            
+            $logoPath = $request->file('logo')->store('public/unit_logos');
+            $unit->logo = str_replace('public/', '', $logoPath);
         }
 
-        $unit->update($data);
+        $unit->save();
 
-        return redirect()->route('units.index')->with('success', 'Unit berhasil diperbarui.');
+        return redirect()->route('units.index')
+            ->with('success', 'Unit berhasil diperbarui!');
+    }
+
+    /**
+     * Remove the specified unit from storage.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $unit = Unit::findOrFail($id);
+        
+        // Hapus logo jika ada
+        if ($unit->logo && Storage::exists('public/' . $unit->logo)) {
+            Storage::delete('public/' . $unit->logo);
+        }
+        
+        $unit->delete();
+
+        return redirect()->route('units.index')
+            ->with('success', 'Unit berhasil dihapus!');
+    }
+
+    /**
+     * Show profile form for unit user.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function profile()
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'unit') {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+        }
+        
+        $unit = $user->unit;
+        
+        if (!$unit) {
+            $unit = new Unit();
+            $unit->id_user = $user->id;
+            $unit->save();
+        }
+        
+        return view('unit.profile', compact('unit'));
+    }
+
+    /**
+     * Update unit profile.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'unit') {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses ke halaman ini.');
+        }
+        
+        $validator = Validator::make($request->all(), [
+            'nama_unit' => 'required|string|max:255',
+            'direktur' => 'required|string|max:255',
+            'telepon' => 'required|string|max:15',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput();
+        }
+        
+        $unit = $user->unit;
+        
+        if (!$unit) {
+            $unit = new Unit();
+            $unit->id_user = $user->id;
+        }
+        
+        $unit->nama_unit = $request->nama_unit;
+        $unit->direktur = $request->direktur;
+        $unit->telepon = $request->telepon;
+
+        if ($request->hasFile('logo')) {
+            // Hapus logo lama jika ada
+            if ($unit->logo && Storage::exists('public/' . $unit->logo)) {
+                Storage::delete('public/' . $unit->logo);
+            }
+            
+            $logoPath = $request->file('logo')->store('public/unit_logos');
+            $unit->logo = str_replace('public/', '', $logoPath);
+        }
+
+        $unit->save();
+
+        return redirect()->route('dokumen.create')
+            ->with('success', 'Profil unit berhasil diperbarui!');
     }
 }

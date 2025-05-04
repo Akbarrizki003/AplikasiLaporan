@@ -17,11 +17,13 @@ class CreateTbUnitTable extends Migration
             $table->id('id_unit');
             $table->string('nama_unit');
             $table->string('direktur');
-            $table->string('email')->unique();
+            $table->unsignedBigInteger('id_user')->nullable(); // Foreign key to unit
             $table->string('telepon');
-            $table->string('password');
             $table->string('logo')->nullable();
             $table->timestamps();
+
+            $table->foreign('id_user')->references('id')->on('users')->onDelete('cascade');
+            
         });
     }
 

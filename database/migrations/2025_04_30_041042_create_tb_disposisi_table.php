@@ -16,14 +16,14 @@ class CreateTbDisposisiTable extends Migration
         Schema::create('tb_disposisi', function (Blueprint $table) {
             $table->id('id_disposisi');
             $table->unsignedBigInteger('id_dokumen');
-            $table->unsignedBigInteger('id_admin'); // keuangan, manajer, atau atasan
+            $table->unsignedBigInteger('id_user'); // Merujuk ke users (keuangan, manajer, atau atasan)
             $table->enum('status', ['diteruskan', 'ditolak', 'disetujui']);
             $table->text('catatan')->nullable();
             $table->timestamps();
         
             $table->foreign('id_dokumen')->references('id_dokumen')->on('tb_dokumen')->onDelete('cascade');
-            $table->foreign('id_admin')->references('id_admin')->on('tb_user_admin')->onDelete('cascade');
-        });        
+            $table->foreign('id_user')->references('id')->on('users')->onDelete('cascade');
+        }); 
     }
 
     /**

@@ -1,56 +1,108 @@
-<div class="container mt-4">
-    <h1 class="mb-4">Tambah Unit</h1>
+@extends('layouts.app')
 
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            <strong>Terjadi kesalahan:</strong>
-            <ul class="mb-0">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
+@section('content')
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">Tambah Unit Baru</div>
+
+                <div class="card-body">
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul>
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('units.store') }}" enctype="multipart/form-data">
+                        @csrf
+
+                        <div class="form-group row mb-3">
+                            <label for="id_user" class="col-md-4 col-form-label text-md-right">User Unit</label>
+                            <div class="col-md-6">
+                                <select id="id_user" class="form-control @error('id_user') is-invalid @enderror" name="id_user" required>
+                                    <option value="">Pilih User</option>
+                                    @foreach ($users as $user)
+                                        <option value="{{ $user->id }}" {{ old('id_user') == $user->id ? 'selected' : '' }}>
+                                            {{ $user->name }} ({{ $user->email }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('id_user')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-3">
+                            <label for="nama_unit" class="col-md-4 col-form-label text-md-right">Nama Unit</label>
+                            <div class="col-md-6">
+                                <input id="nama_unit" type="text" class="form-control @error('nama_unit') is-invalid @enderror" name="nama_unit" value="{{ old('nama_unit') }}" required autofocus>
+                                @error('nama_unit')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-3">
+                            <label for="direktur" class="col-md-4 col-form-label text-md-right">Direktur</label>
+                            <div class="col-md-6">
+                                <input id="direktur" type="text" class="form-control @error('direktur') is-invalid @enderror" name="direktur" value="{{ old('direktur') }}" required>
+                                @error('direktur')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-3">
+                            <label for="telepon" class="col-md-4 col-form-label text-md-right">Telepon</label>
+                            <div class="col-md-6">
+                                <input id="telepon" type="text" class="form-control @error('telepon') is-invalid @enderror" name="telepon" value="{{ old('telepon') }}" required>
+                                @error('telepon')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-3">
+                            <label for="logo" class="col-md-4 col-form-label text-md-right">Logo</label>
+                            <div class="col-md-6">
+                                <input id="logo" type="file" class="form-control @error('logo') is-invalid @enderror" name="logo">
+                                <small class="form-text text-muted">Format: JPG, PNG, JPEG (Maks: 2MB)</small>
+                                @error('logo')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-0">
+                            <div class="col-md-6 offset-md-4">
+                                <button type="submit" class="btn btn-primary">
+                                    Simpan
+                                </button>
+                                <a href="{{ route('units.index') }}" class="btn btn-secondary">
+                                    Kembali
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-    @endif
-
-    <form action="{{ route('units.store') }}" method="POST" enctype="multipart/form-data">
-        @csrf
-
-        <div class="mb-3">
-            <label for="nama_unit" class="form-label">Nama Unit</label>
-            <input type="text" name="nama_unit" class="form-control" value="{{ old('nama_unit') }}" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="direktur" class="form-label">Direktur</label>
-            <input type="text" name="direktur" class="form-control" value="{{ old('direktur') }}" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="email" class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" value="{{ old('email') }}" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="telepon" class="form-label">Telepon</label>
-            <input type="text" name="telepon" class="form-control" value="{{ old('telepon') }}" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="password_confirmation" class="form-label">Konfirmasi Password</label>
-            <input type="password" name="password_confirmation" class="form-control" required>
-        </div>
-
-        <div class="mb-3">
-            <label for="logo" class="form-label">Logo (opsional)</label>
-            <input type="file" name="logo" class="form-control">
-        </div>
-
-        <button type="submit" class="btn btn-success">Simpan</button>
-        <a href="{{ route('units.index') }}" class="btn btn-secondary">Batal</a>
-    </form>
+    </div>
 </div>
+@endsection
