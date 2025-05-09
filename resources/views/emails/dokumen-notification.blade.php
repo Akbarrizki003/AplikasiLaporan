@@ -1,123 +1,92 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>{{ $emailSubject }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
         }
         .header {
-            background-color: #4a76a8;
-            color: white;
+            background-color: #f8f9fa;
             padding: 15px;
             text-align: center;
-            border-radius: 5px 5px 0 0;
+            border-bottom: 3px solid #007bff;
         }
         .content {
-            border: 1px solid #ddd;
-            border-top: none;
             padding: 20px;
-            border-radius: 0 0 5px 5px;
+            background-color: #ffffff;
         }
         .footer {
             margin-top: 20px;
-            font-size: 12px;
             text-align: center;
-            color: #777;
+            font-size: 12px;
+            color: #6c757d;
         }
-        .btn {
+        .button {
             display: inline-block;
-            padding: 10px 15px;
-            background-color: #4a76a8;
-            color: white;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: #ffffff;
             text-decoration: none;
-            border-radius: 3px;
+            border-radius: 4px;
             margin-top: 15px;
         }
-        .dokumen-info {
-            background-color: #f9f9f9;
+        .credentials {
+            background-color: #f8f9fa;
             padding: 15px;
-            margin: 15px 0;
-            border-left: 4px solid #4a76a8;
-        }
-        table {
-            width: 100%;
-        }
-        table td {
-            padding: 5px;
-        }
-        .login-info {
-            background-color: #fff8e1;
-            padding: 15px;
-            margin: 15px 0;
-            border-left: 4px solid #ffc107;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2>Notifikasi Dokumen</h2>
-    </div>
-    
-    <div class="content">
-        <p>Halo,</p>
-        
-        <p>{{ $emailMessage }}</p>
-        
-        <div class="dokumen-info">
-            <h3>Informasi Dokumen:</h3>
-            <table>
-                <tr>
-                    <td width="150"><strong>Nama Dokumen:</strong></td>
-                    <td>{{ $dokumen->nama_dokumen }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Unit:</strong></td>
-                    <td>{{ $dokumen->unit->nama_unit ?? 'N/A' }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Tanggal Upload:</strong></td>
-                    <td>{{ \Carbon\Carbon::parse($dokumen->tanggal_upload)->format('d F Y') }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Status:</strong></td>
-                    <td>{{ $dokumen->status_label }}</td>
-                </tr>
-            </table>
+    <div class="container">
+        <div class="header">
+            <h2>{{ $emailSubject }}</h2>
         </div>
         
-        @if(isset($loginData) && $loginData)
-        <div class="login-info">
-            <h3>Informasi Login:</h3>
-            <p>Gunakan informasi berikut untuk login dan meninjau dokumen:</p>
-            <table>
-                <tr>
-                    <td width="150"><strong>Username:</strong></td>
-                    <td>{{ $loginData['username'] }}</td>
-                </tr>
-                <tr>
-                    <td><strong>Password:</strong></td>
-                    <td>{{ $loginData['password'] }}</td>
-                </tr>
-            </table>
+        <div class="content">
+            <p>Halo,</p>
             
-            <a href="{{ $loginData['login_url'] }}" class="btn">Login Sekarang</a>
+            <p>{{ $emailMessage }}</p>
+            
+            <p><strong>Detail Dokumen:</strong></p>
+            <ul>
+                <li>Nama Dokumen: {{ $dokumen->nama_dokumen }}</li>
+                <li>Tanggal Upload: {{ $dokumen->tanggal_upload }}</li>
+                <li>Unit: {{ $dokumen->unit->nama_unit }}</li>
+                <li>Status: {{ $dokumen->status }}</li>
+            </ul>
+            
+            @if ($loginData)
+            <div class="credentials">
+                <p><strong>Berikut adalah informasi login Anda:</strong></p>
+                <p>Email: {{ $loginData['email'] }}</p>
+                <p>Password: {{ $loginData['password'] }}</p>
+                <p><em>Catatan: Password ini bersifat sementara dan akan berubah setiap kali ada dokumen baru.</em></p>
+            </div>
+            
+            <p>
+                <a href="{{ $loginData['login_url'] }}" class="button">Login Sekarang</a>
+            </p>
+            <p>Setelah login, Anda dapat melihat dokumen tersebut dan mengambil tindakan yang diperlukan.</p>
+            @endif
         </div>
-        @endif
         
-        <p>Silakan login ke sistem untuk melihat detail dokumen dan melakukan tindakan yang diperlukan.</p>
-        
-        <a href="{{ route('dokumen.index') }}" class="btn">Lihat Dokumen</a>
-    </div>
-    
-    <div class="footer">
-        <p>Email ini dibuat secara otomatis. Mohon tidak membalas email ini.</p>
-        <p>&copy; {{ date('Y') }} Sistem Laporan. All rights reserved.</p>
+        <div class="footer">
+            <p>Ini adalah email notifikasi otomatis. Mohon tidak membalas email ini.</p>
+            <p>&copy; {{ date('Y') }} Sistem Dokumen. All rights reserved.</p>
+        </div>
     </div>
 </body>
 </html>

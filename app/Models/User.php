@@ -51,4 +51,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(Unit::class, 'id_user', 'id');
     }
+    
+    public function getIdUnitAttribute()
+    {
+        return $this->unit ? $this->unit->id_unit : null;
+    }
 }

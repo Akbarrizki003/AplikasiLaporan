@@ -1,253 +1,212 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Detail Dokumen</h5>
-                        <a href="{{ route('dokumen.index') }}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Kembali
-                        </a>
-                    </div>
+<div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <!-- Header with document info -->
+    <div class="bg-gradient-to-r from-pln-blue to-pln-blue-light p-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between">
+            <div>
+                <h1 class="text-white text-2xl font-semibold mb-2">{{ $dokumen->nama_dokumen }}</h1>
+                <div class="flex items-center text-white/80 text-sm">
+                    <i class="fas fa-building mr-2"></i>
+                    <span>{{ $dokumen->unit->nama_unit ?? 'Unit tidak ditemukan' }}</span>
                 </div>
-
-                <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    @if(session('error'))
-                        <div class="alert alert-danger">
-                            {{ session('error') }}
-                        </div>
-                    @endif
-
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Nama Dokumen:</div>
-                        <div class="col-md-8">{{ $dokumen->nama_dokumen }}</div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Unit:</div>
-                        <div class="col-md-8">{{ $dokumen->unit->nama_unit }}</div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Tanggal Upload:</div>
-                        <div class="col-md-8">{{ \Carbon\Carbon::parse($dokumen->tanggal_upload)->format('d M Y') }}</div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">Status:</div>
-                        <div class="col-md-8">
-                            @switch($dokumen->status)
-                                @case('dikirim')
-                                    <span class="badge bg-primary">Dikirim</span>
-                                    @break
-                                @case('diterima_keuangan')
-                                    <span class="badge bg-info">Diterima Keuangan</span>
-                                    @break
-                                @case('diteruskan_ke_manejer')
-                                    <span class="badge bg-secondary">Diteruskan ke Manajer</span>
-                                    @break
-                                @case('disetujui_manejer')
-                                    <span class="badge bg-success">Disetujui Manajer</span>
-                                    @break
-                                @case('ditolak_manejer')
-                                    <span class="badge bg-danger">Ditolak Manajer</span>
-                                    @break
-                                @case('diteruskan_ke_atasan')
-                                    <span class="badge bg-secondary">Diteruskan ke Atasan</span>
-                                    @break
-                                @case('disetujui_atasan')
-                                    <span class="badge bg-success">Disetujui Atasan</span>
-                                    @break
-                                @case('ditolak_atasan')
-                                    <span class="badge bg-danger">Ditolak Atasan</span>
-                                    @break
-                                @default
-                                    <span class="badge bg-secondary">{{ $dokumen->status }}</span>
-                            @endswitch
-                        </div>
-                    </div>
-
-                    @if($dokumen->catatan && in_array($dokumen->status, ['ditolak_manejer', 'ditolak_atasan']))
-                        <div class="row mb-3">
-                            <div class="col-md-4 fw-bold">Catatan Penolakan:</div>
-                            <div class="col-md-8">
-                                <div class="alert alert-warning">
-                                    {{ $dokumen->catatan }}
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <div class="row mb-3">
-                        <div class="col-md-4 fw-bold">File:</div>
-                        <div class="col-md-8">
-                            <div class="d-flex align-items-center">
-                                @php
-                                    $fileExtension = pathinfo(Storage::url($dokumen->file), PATHINFO_EXTENSION);
-                                    $iconClass = 'bi-file-earmark';
-                                    
-                                    if (in_array($fileExtension, ['pdf'])) {
-                                        $iconClass = 'bi-file-earmark-pdf';
-                                    } elseif (in_array($fileExtension, ['doc', 'docx'])) {
-                                        $iconClass = 'bi-file-earmark-word';
-                                    } elseif (in_array($fileExtension, ['xls', 'xlsx'])) {
-                                        $iconClass = 'bi-file-earmark-excel';
-                                    }
-                                @endphp
-                                
-                                <i class="bi {{ $iconClass }} fs-2 me-2"></i>
-                                
-                                @if(Auth::user()->role === 'unit' && $dokumen->id_unit === Auth::user()->id_unit)
-                                    <a href="{{ route('dokumen.download', $dokumen->id_dokumen) }}" class="btn btn-sm btn-success">
-                                        <i class="bi bi-download"></i> Download
-                                    </a>
-                                @else
-                                    <a href="{{ route('dokumen.viewDokumen', $dokumen->id_dokumen) }}" class="btn btn-sm btn-info" target="_blank">
-                                        <i class="bi bi-eye"></i> Lihat Dokumen
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="d-flex mt-4">
-                        @if(Auth::user()->role === 'unit' && Auth::user()->id_unit === $dokumen->id_unit)
-                            @if(in_array($dokumen->status, ['dikirim', 'ditolak_manejer', 'ditolak_atasan']))
-                                <a href="{{ route('dokumen.edit', $dokumen->id_dokumen) }}" class="btn btn-warning me-2">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </a>
-                                
-                                <form action="{{ route('dokumen.destroy', $dokumen->id_dokumen) }}" method="POST">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Apakah Anda yakin ingin menghapus dokumen ini?')">
-                                        <i class="bi bi-trash"></i> Hapus
-                                    </button>
-                                </form>
-                            @endif
-                        @endif
-
-                        @if(Auth::user()->role === 'keuangan')
-                            @if($dokumen->status === 'dikirim')
-                                <form action="{{ route('dokumen.terimaKeuangan', $dokumen->id_dokumen) }}" method="POST" class="me-2">
-                                    @csrf
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="bi bi-check-circle"></i> Terima
-                                    </button>
-                                </form>
-                            @endif
-
-                            @if($dokumen->status === 'diterima_keuangan')
-                                <form action="{{ route('dokumen.teruskanKeManajer', $dokumen->id_dokumen) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-forward"></i> Teruskan ke Manajer
-                                    </button>
-                                </form>
-                            @endif
-                        @endif
-
-                        @if(Auth::user()->role === 'manajer')
-                            @if($dokumen->status === 'diteruskan_ke_manejer')
-                                <form action="{{ route('dokumen.setujuiManajer', $dokumen->id_dokumen) }}" method="POST" class="me-2">
-                                    @csrf
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="bi bi-check-circle"></i> Setujui
-                                    </button>
-                                </form>
-
-                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#tolakModal">
-                                    <i class="bi bi-x-circle"></i> Tolak
-                                </button>
-
-                                <!-- Modal Tolak -->
-                                <div class="modal fade" id="tolakModal" tabindex="-1" aria-labelledby="tolakModalLabel" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="tolakModalLabel">Tolak Dokumen</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <form action="{{ route('dokumen.tolakManajer', $dokumen->id_dokumen) }}" method="POST">
-                                                @csrf
-                                                <div class="modal-body">
-                                                    <div class="mb-3">
-                                                        <label for="catatan" class="form-label">Catatan Penolakan</label>
-                                                        <textarea class="form-control" id="catatan" name="catatan" rows="3" required></textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                                    <button type="submit" class="btn btn-danger">Tolak Dokumen</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if($dokumen->status === 'disetujui_manejer')
-                                <form action="{{ route('dokumen.teruskanKeAtasan', $dokumen->id_dokumen) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-forward"></i> Teruskan ke Atasan
-                                    </button>
-                                </form>
-                            @endif
-                        @endif
-
-                        @if(Auth::user()->role === 'atasan')
-                            @if($dokumen->status === 'diteruskan_ke_atasan')
-                                <form action="{{ route('dokumen.setujuiAtasan', $dokumen->id_dokumen) }}" method="POST" class="me-2">
-                                    @csrf
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="bi bi-check-circle"></i> Setujui
-                                    </button>
-                                </form>
-
-                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#tolakModal">
-                                    <i class="bi bi-x-circle"></i> Tolak
-                                </button>
-
-                                <!-- Modal Tolak -->
-                                <div class="modal fade" id="tolakModal" tabindex="-1" aria-labelledby="tolakModalLabel" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="tolakModalLabel">Tolak Dokumen</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <form action="{{ route('dokumen.tolakAtasan', $dokumen->id_dokumen) }}" method="POST">
-                                                @csrf
-                                                <div class="modal-body">
-                                                    <div class="mb-3">
-                                                        <label for="catatan" class="form-label">Catatan Penolakan</label>
-                                                        <textarea class="form-control" id="catatan" name="catatan" rows="3" required></textarea>
-                                                    </div>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                                    <button type="submit" class="btn btn-danger">Tolak Dokumen</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-                        @endif
-                    </div>
-                </div>
+            </div>
+            <div class="mt-4 md:mt-0">
+                <span class="inline-block px-4 py-2 rounded-full {{ $dokumen->status === 'disetujui_atasan' ? 'bg-green-500' : ($dokumen->status === 'ditolak_atasan' || $dokumen->status === 'ditolak_manejer' ? 'bg-red-500' : 'bg-pln-yellow') }} text-white text-sm font-medium">
+                    {{ $dokumen->status_label ?? ucfirst(str_replace('_', ' ', $dokumen->status)) }}
+                </span>
             </div>
         </div>
     </div>
+
+    <!-- Document metadata -->
+    <div class="p-6 border-b">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-gray-500 text-sm font-medium mb-1">Tanggal Upload</h3>
+                <p class="text-gray-800">{{ \Carbon\Carbon::parse($dokumen->tanggal_upload)->format('d M Y') }}</p>
+            </div>
+            <div>
+                <h3 class="text-gray-500 text-sm font-medium mb-1">ID Dokumen</h3>
+                <p class="text-gray-800">#{{ $dokumen->id }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document actions -->
+    <div class="p-6 flex flex-wrap gap-3">
+        <!-- View Document Button -->
+        <a href="{{ route('dokumen.viewDokumen', $dokumen->id_dokumen) }}" class="inline-flex items-center px-4 py-2 bg-pln-blue text-white rounded-md hover:bg-pln-blue-dark transition-colors">
+            <i class="fas fa-eye mr-2"></i>
+            Lihat Dokumen
+        </a>
+
+        <!-- Download Button -->
+        <a href="{{ Storage::disk('public')->url($dokumen->file) }}" download class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+            <i class="fas fa-download mr-2"></i>
+            Download
+        </a>
+
+        @if(Auth::user()->role === 'unit' && in_array($dokumen->status, ['dikirim', 'ditolak_manejer', 'ditolak_atasan']))
+            <!-- Edit Button - Only for unit user with specific document statuses -->
+            <a href="{{ route('dokumen.edit', $dokumen->id_dokumen) }}" class="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors">
+                <i class="fas fa-edit mr-2"></i>
+                Edit
+            </a>
+        @endif
+
+        @if(Auth::user()->role === 'keuangan' && $dokumen->status === 'dikirim')
+            <!-- Finance department actions -->
+            <form action="{{ route('dokumen.terimaKeuangan', $dokumen->id_dokumen) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fas fa-check mr-2"></i>
+                    Terima
+                </button>
+            </form>
+
+            <form action="{{ route('dokumen.teruskanKeManajer', $dokumen->id_dokumen) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                    <i class="fas fa-share mr-2"></i>
+                    Teruskan ke Manajer
+                </button>
+            </form>
+        @endif
+
+        @if(Auth::user()->role === 'manajer' && $dokumen->status === 'diteruskan_ke_manejer')
+            <!-- Manager actions -->
+            <form action="{{ route('dokumen.setujuiManajer', $dokumen->id_dokumen) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fas fa-check mr-2"></i>
+                    Setujui
+                </button>
+            </form>
+
+            <button type="button" onclick="showTolakModal('manajer')" class="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                Tolak
+            </button>
+        @endif
+
+        @if(Auth::user()->role === 'manajer' && $dokumen->status === 'disetujui_manejer')
+            <!-- Forward to higher-up action -->
+            <form action="{{ route('dokumen.teruskanKeAtasan', $dokumen->id_dokumen) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                    <i class="fas fa-share mr-2"></i>
+                    Teruskan ke Atasan
+                </button>
+            </form>
+        @endif
+
+        @if(Auth::user()->role === 'atasan' && $dokumen->status === 'diteruskan_ke_atasan')
+            <!-- Superior actions -->
+            <form action="{{ route('dokumen.setujuiAtasan', $dokumen->id_dokumen) }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors">
+                    <i class="fas fa-check mr-2"></i>
+                    Setujui
+                </button>
+            </form>
+
+            <button type="button" onclick="showTolakModal('atasan')" class="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                <i class="fas fa-times mr-2"></i>
+                Tolak
+            </button>
+        @endif
+    </div>
+
+    <!-- Rejection notes if available -->
+    @if($dokumen->catatan && in_array($dokumen->status, ['ditolak_manejer', 'ditolak_atasan']))
+        <div class="p-6 bg-red-50 border-t">
+            <h3 class="text-red-700 font-medium mb-2 flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>Catatan Penolakan
+            </h3>
+            <div class="bg-white p-4 border border-red-200 rounded-md text-gray-700">
+                {{ $dokumen->catatan }}
+            </div>
+        </div>
+    @endif
+
+    <!-- Document history - could be extended with a table of document status changes -->
+    <div class="p-6 bg-gray-50 border-t">
+        <h3 class="text-gray-700 font-medium mb-4">Histori Dokumen</h3>
+        <div class="flex flex-col">
+            <div class="flex items-center pb-4">
+                <div class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
+                    <i class="fas fa-file-upload"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-gray-900">Dokumen diunggah</p>
+                    <p class="text-sm text-gray-500">{{ \Carbon\Carbon::parse($dokumen->tanggal_upload)->format('d M Y, H:i') }}</p>
+                </div>
+            </div>
+            
+            <!-- Additional history entries would be dynamically generated here based on document status -->
+        </div>
+    </div>
 </div>
+
+<!-- Rejection Modal for Manager -->
+<div id="tolakManajerModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div class="p-5 border-b">
+            <h3 class="text-xl font-medium text-gray-900">Tolak Dokumen</h3>
+        </div>
+        <form action="{{ route('dokumen.tolakManajer', $dokumen->id_dokumen) }}" method="POST">
+            @csrf
+            <div class="p-5">
+                <label for="catatan" class="block text-sm font-medium text-gray-700 mb-2">Alasan Penolakan</label>
+                <textarea id="catatan" name="catatan" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pln-blue" required></textarea>
+            </div>
+            <div class="p-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+                <button type="button" onclick="hideTolakModal('manajer')" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Batal
+                </button>
+                <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                    Tolak Dokumen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Rejection Modal for Superior -->
+<div id="tolakAtasanModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+        <div class="p-5 border-b">
+            <h3 class="text-xl font-medium text-gray-900">Tolak Dokumen</h3>
+        </div>
+        <form action="{{ route('dokumen.tolakAtasan', $dokumen->id_dokumen) }}" method="POST">
+            @csrf
+            <div class="p-5">
+                <label for="catatan" class="block text-sm font-medium text-gray-700 mb-2">Alasan Penolakan</label>
+                <textarea id="catatan" name="catatan" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-pln-blue" required></textarea>
+            </div>
+            <div class="p-4 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+                <button type="button" onclick="hideTolakModal('atasan')" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
+                    Batal
+                </button>
+                <button type="submit" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">
+                    Tolak Dokumen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showTolakModal(role) {
+        document.getElementById('tolak' + role.charAt(0).toUpperCase() + role.slice(1) + 'Modal').classList.remove('hidden');
+        document.getElementById('tolak' + role.charAt(0).toUpperCase() + role.slice(1) + 'Modal').classList.add('flex');
+    }
+    
+    function hideTolakModal(role) {
+        document.getElementById('tolak' + role.charAt(0).toUpperCase() + role.slice(1) + 'Modal').classList.add('hidden');
+        document.getElementById('tolak' + role.charAt(0).toUpperCase() + role.slice(1) + 'Modal').classList.remove('flex');
+    }
+</script>
 @endsection

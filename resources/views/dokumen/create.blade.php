@@ -111,9 +111,7 @@
 
                 <form action="{{ route('dokumen.store') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
                     @csrf
-                    <!-- Hidden field for id_unit -->
-                    <input type="hidden" name="id_unit" value="{{ auth()->user()->id_unit }}">
-                    
+                    <!-- Hidden field for id_unit -->                    
                     <div class="space-y-1">
                         <label for="nama_dokumen" class="block text-sm font-medium text-gray-700">Nama Dokumen</label>
                         <div class="relative">

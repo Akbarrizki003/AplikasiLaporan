@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use App\Mail\NotifikasiDokumen;
+use App\Mail\DokumenNotification;
 use Carbon\Carbon;
 
 class DokumenController extends Controller
@@ -23,36 +23,47 @@ class DokumenController extends Controller
      */
     public function index()
     {
-        // Cek role user yang sedang login
+        // Filter dokumen berdasarkan role
         $user = Auth::user();
-        $role = $user->role; // Asumsikan ada kolom role di tabel users
-
-        // Ambil dokumen berdasarkan role
-        if ($role === 'unit') {
-            // Unit melihat dokumen miliknya sendiri
-            $dokumen = Dokumen::where('id_unit', $user->id_unit)
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-        } elseif ($role === 'keuangan') {
-            // Keuangan melihat semua dokumen yang statusnya 'dikirim' atau 'diterima_keuangan'
-            $dokumen = Dokumen::whereIn('status', ['dikirim', 'diterima_keuangan'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-        } elseif ($role === 'manajer') {
-            // Manajer melihat dokumen yang statusnya 'diteruskan_ke_manejer', 'disetujui_manejer', 'ditolak_manejer'
-            $dokumen = Dokumen::whereIn('status', ['diteruskan_ke_manejer', 'disetujui_manejer', 'ditolak_manejer'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-        } elseif ($role === 'atasan') {
-            // Atasan melihat dokumen yang statusnya 'diteruskan_ke_atasan', 'disetujui_atasan', 'ditolak_atasan'
-            $dokumen = Dokumen::whereIn('status', ['diteruskan_ke_atasan', 'disetujui_atasan', 'ditolak_atasan'])
-                ->orderBy('created_at', 'desc')
-                ->paginate(10);
-        } else {
-            // Admin melihat semua dokumen
-            $dokumen = Dokumen::orderBy('created_at', 'desc')->paginate(10);
+        $query = Dokumen::query();
+        
+        if ($user->role === 'unit') {
+            // User dengan role unit hanya melihat dokumen miliknya
+            $id_unit = $user->id_unit; // Menggunakan accessor getIdUnitAttribute
+            
+            if (!$id_unit) {
+                return redirect()->route('unit.profile.create')
+                    ->with('error', 'Anda perlu melengkapi profil unit terlebih dahulu.');
+            }
+            
+            $query->where('id_unit', $id_unit);
+        } elseif ($user->role === 'keuangan') {
+            // Bagian keuangan melihat semua dokumen
+            // Tidak perlu filter khusus
+        } elseif ($user->role === 'manajer') {
+            // Manajer melihat dokumen yang sudah diterima keuangan atau lebih tinggi
+            $query->whereIn('status', [
+                'diterima_keuangan', 
+                'diteruskan_ke_manejer', 
+                'disetujui_manejer', 
+                'ditolak_manejer',
+                'diteruskan_ke_atasan',
+                'disetujui_atasan',
+                'ditolak_atasan'
+            ]);
+        } elseif ($user->role === 'atasan') {
+            // Atasan melihat dokumen yang sudah diteruskan ke atasan atau lebih tinggi
+            $query->whereIn('status', [
+                'diteruskan_ke_atasan',
+                'disetujui_atasan',
+                'ditolak_atasan'
+            ]);
         }
-
+        
+        // Urutkan berdasarkan tanggal upload terbaru
+        $dokumen = $query->orderBy('tanggal_upload', 'desc')
+                        ->paginate(10);
+        
         return view('dokumen.index', compact('dokumen'));
     }
 
@@ -98,9 +109,25 @@ class DokumenController extends Controller
         $fileName = time() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('dokumen', $fileName, 'public');
 
+        // Ambil id_unit dari user yang sedang login dengan role 'unit'
+        $user = Auth::user();
+        
+        // Dapatkan id_unit melalui relasi unit
+        $id_unit = null;
+        if ($user->role === 'unit' && $user->unit) {
+            $id_unit = $user->unit->id_unit;
+        }
+        
+        // Jika id_unit tidak ditemukan, tampilkan error
+        if (!$id_unit) {
+            return redirect()->back()
+                ->with('error', 'Data unit tidak ditemukan. Silakan lengkapi profil unit terlebih dahulu.')
+                ->withInput();
+        }
+
         // Simpan dokumen
         $dokumen = Dokumen::create([
-            'id_unit' => Auth::user()->id_unit,
+            'id_unit' => $id_unit,
             'nama_dokumen' => $request->nama_dokumen,
             'tanggal_upload' => Carbon::now()->toDateString(),
             'file' => $filePath,
@@ -127,7 +154,7 @@ class DokumenController extends Controller
         
         // Jika role adalah keuangan, manajer, atau atasan, tampilkan view dokumen
         if (in_array($user->role, ['keuangan', 'manajer', 'atasan'])) {
-            return $this->viewDokumen($id);
+            return view('dokumen.show', compact('dokumen'));
         } else {
             return view('dokumen.show', compact('dokumen'));
         }
@@ -142,6 +169,12 @@ class DokumenController extends Controller
     public function viewDokumen($id)
     {
         $dokumen = Dokumen::findOrFail($id);
+        
+        // Hanya user dengan role keuangan, manajer, atau atasan yang bisa melihat dokumen
+        $user = Auth::user();
+        if (!in_array($user->role, ['keuangan', 'manajer', 'atasan'])) {
+            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk melihat dokumen ini');
+        }
         
         if (!Storage::disk('public')->exists($dokumen->file)) {
             return redirect()->back()->with('error', 'File tidak ditemukan');
@@ -161,29 +194,6 @@ class DokumenController extends Controller
         } else {
             return redirect()->back()->with('error', 'Format file tidak didukung untuk dilihat langsung');
         }
-    }
-
-    /**
-     * Download file dokumen - hanya untuk unit
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function download($id)
-    {
-        $dokumen = Dokumen::findOrFail($id);
-        $user = Auth::user();
-        
-        // Hanya user dengan role unit yang bisa download dokumen miliknya
-        if ($user->role !== 'unit' || $dokumen->id_unit !== $user->id_unit) {
-            return redirect()->back()->with('error', 'Anda tidak memiliki akses untuk mengunduh dokumen ini');
-        }
-        
-        if (!Storage::disk('public')->exists($dokumen->file)) {
-            return redirect()->back()->with('error', 'File tidak ditemukan');
-        }
-        
-        return Storage::disk('public')->download($dokumen->file, $dokumen->nama_dokumen);
     }
 
     /**
@@ -269,7 +279,7 @@ class DokumenController extends Controller
         }
 
         return redirect()->route('dokumen.index')
-            ->with('success', 'Dokumen berhasil diperbarui');
+            ->with('success', 'Dokumen berhasil diperbarui dan dikirim ke bagian keuangan');
     }
 
     /**
@@ -498,67 +508,85 @@ class DokumenController extends Controller
         
         foreach ($keuanganUsers as $user) {
             // Kirim email notifikasi
-            Mail::to($user->email)->send(new NotifikasiDokumen(
-                'Dokumen Baru Diterima',
-                'Terdapat dokumen baru dari unit ' . $dokumen->unit->nama_unit,
-                route('dokumen.show', $dokumen->id_dokumen),
-                $user
+            $subject = 'Dokumen Baru Diterima';
+            $message = 'Terdapat dokumen baru dari unit ' . $dokumen->unit->nama_unit;
+            
+            Mail::to($user->email)->send(new DokumenNotification(
+                $dokumen,
+                $subject,
+                $message
             ));
         }
     }
 
     /**
-     * Kirim notifikasi ke manajer
+     * Kirim notifikasi ke manajer dengan kredensial login
      */
     private function kirimNotifikasiKeManajer($dokumen)
     {
         // Ambil semua user dengan role manajer
         $manajerUsers = User::where('role', 'manajer')->get();
         
-        // Generate temporary password untuk manajer
-        $tempPassword = Str::random(10);
-        
         foreach ($manajerUsers as $user) {
+            // Generate temporary password untuk manajer
+            $tempPassword = Str::random(10);
+            
             // Update password user
             $user->password = bcrypt($tempPassword);
             $user->save();
             
+            // Siapkan data login
+            $loginData = [
+                'email' => $user->email,
+                'password' => $tempPassword,
+                'login_url' => route('login')
+            ];
+            
             // Kirim email notifikasi dengan kredensial login
-            Mail::to($user->email)->send(new NotifikasiDokumen(
-                'Dokumen Untuk Disetujui',
-                'Terdapat dokumen dari unit ' . $dokumen->unit->nama_unit . ' yang perlu disetujui',
-                route('dokumen.show', $dokumen->id_dokumen),
-                $user,
-                $user->email,
-                $tempPassword
+            $subject = 'Dokumen Untuk Disetujui';
+            $message = 'Terdapat dokumen dari unit ' . $dokumen->unit->nama_unit . ' yang perlu disetujui';
+            
+            Mail::to($user->email)->send(new DokumenNotification(
+                $dokumen,
+                $subject,
+                $message,
+                $loginData
             ));
         }
     }
 
     /**
-     * Kirim notifikasi ke atasan
+     * Kirim notifikasi ke atasan dengan kredensial login
      */
     private function kirimNotifikasiKeAtasan($dokumen)
     {
         // Ambil semua user dengan role atasan
         $atasanUsers = User::where('role', 'atasan')->get();
         
-        // Generate temporary password untuk atasan
-        $tempPassword = Str::random(10);
-        
         foreach ($atasanUsers as $user) {
+            // Generate temporary password untuk atasan
+            $tempPassword = Str::random(10);
+            
             // Update password user
             $user->password = bcrypt($tempPassword);
             $user->save();
             
+            // Siapkan data login
+            $loginData = [
+                'email' => $user->email,
+                'password' => $tempPassword,
+                'login_url' => route('login')
+            ];
+            
             // Kirim email notifikasi dengan kredensial login
-            Mail::to($user->email)->send(new NotifikasiDokumen(
-                'Dokumen Untuk Persetujuan Final',
-                'Terdapat dokumen dari unit ' . $dokumen->unit->nama_unit . ' yang sudah disetujui manajer dan perlu persetujuan final',
-                route('dokumen.show', $dokumen->id_dokumen),
-                $user,
-                $user->email,
-                $tempPassword
+            $subject = 'Dokumen Untuk Persetujuan Final';
+            $message = 'Terdapat dokumen dari unit ' . $dokumen->unit->nama_unit . ' yang sudah disetujui manajer dan perlu persetujuan final';
+            
+            Mail::to($user->email)->send(new DokumenNotification(
+                $dokumen,
+                $subject,
+                $message,
+                $loginData
             ));
         }
     }
